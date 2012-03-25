@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="repository.wistful-xmbc-addons" name="wistful xbmc addons" version="1.0.3" provider-name="wistful">
+    <extension point="xbmc.addon.repository" name="wistful add-on repository">
+        <info compressed="false">http://dl.dropbox.com/u/2263292/repo/addons.xml</info>
+        <checksum>http://dl.dropbox.com/u/2263292/repo/addons.xml.md5</checksum>
+        <datadir zip="true">http://dl.dropbox.com/u/2263292/repo</datadir>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>Install Addons from http://dl.dropbox.com/u/2263292/repo/ </summary>
+        <description>Download and install addons from wistful repository.</description>
+        <platform>all</platform>
+    </extension>
+</addon>
