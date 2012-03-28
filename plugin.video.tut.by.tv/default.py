@@ -72,14 +72,9 @@ def Get_Categories():
     xbmcplugin.endOfDirectory(thisPlugin)
 
 
-def Get_Subcategories(params):
-    # -- parameters
-    url = urllib.unquote_plus(params['url'])
-    url2 = get_url(url)
-    xbmc.log("url: " + url2)
-    # category_name = urllib.unquote_plus(params['name'])
+def fetch_subcategories(url):
     post = None
-    request = urllib2.Request(url2, post)
+    request = urllib2.Request(url, post)
     request.add_header('User-Agent', 'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1) ; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729; .NET4.0C)')
     request.add_header('Accept', '*/*')
     request.add_header('Accept-Language', 'ru-RU')
@@ -95,17 +90,23 @@ def Get_Subcategories(params):
     html = f.read()
 
     soup = BeautifulSoup(html, fromEncoding="windows-1251")
+    count = 0
     for div in soup.find("ul", {"id": "newsBlock1"}).findAll("li"):
         str_date = div.span.text.encode('utf-8')
         name = div.a.text.encode('utf-8')
         href = div.a['href']
-        # i = xbmcgui.ListItem("{name} ({str_date})".format(name=name, str_date=str_date), iconImage=None, thumbnailImage=None)
+        is_video = div.find(lambda tag: tag.name == "img" and u"Видео" in dict(tag.attrs).get('title', ''))
+        # is_audio = div.find(lambda tag: tag.name == "img" and u"Аудио" in dict(tag.attrs).get('title', ''))
+        if not is_video:
+            continue
         i = xbmcgui.ListItem("%s (%s)" % (name, str_date), iconImage=None, thumbnailImage=None)
         u = sys.argv[0] + '?mode=EPISODE'
         u += '&name=%s' % urllib.quote_plus(name)
         u += '&url=%s' % urllib.quote_plus(href)
         xbmcplugin.addDirectoryItem(thisPlugin, u, i, False)
+        count += 1
 
+    next_step = None
     try:
         next_step = soup.find("div", {"class": "otherInfo"}).find("ul", {"class": "pagination"}).findAll("li")[-1].find("a", {"class": "step"})['href']
         i = xbmcgui.ListItem(u"Далее >>", iconImage=None, thumbnailImage=None)
@@ -113,73 +114,21 @@ def Get_Subcategories(params):
         u += '&name=%s' % urllib.quote_plus('')
         u += '&url=%s' % urllib.quote_plus(next_step)
         xbmc.log("next step: " + next_step)
-        xbmcplugin.addDirectoryItem(thisPlugin, u, i, True)
+        if count < 15:
+            fetch_subcategories(next_step)
+        else:
+            xbmcplugin.addDirectoryItem(thisPlugin, u, i, True)
     except Exception, ex:
         xbmc.log('Exception: ' + str(ex))
 
-    xbmcplugin.endOfDirectory(thisPlugin)
 
-
-def Get_Episodes(params):
+def Get_Subcategories(params):
     # -- parameters
     url = urllib.unquote_plus(params['url'])
     url2 = get_url(url)
-    category_name = urllib.unquote_plus(params['name'])
-    post = None
-    request = urllib2.Request(url2, post)
-
-    request.add_header('User-Agent', 'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1) ; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729; .NET4.0C)')
-    request.add_header('Accept', '*/*')
-    request.add_header('Accept-Language', 'ru-RU')
-
-    try:
-        f = urllib2.urlopen(request)
-    except IOError, e:
-        if hasattr(e, 'reason'):
-            xbmc.log('We failed to reach a server. Reason: ' + e.reason)
-        elif hasattr(e, 'code'):
-            xbmc.log('The server couldn\'t fulfill the request. Error code: ' + e.code)
-
-    html = f.read()
-
-    soup = BeautifulSoup(html, fromEncoding="windows-1251")
-    for div in soup.findAll("div", {"class": "news"}):
-        str_date = div.span.text
-        name = div.a.text.encode('utf-8')
-        if name.startswith(category_name):
-            name = name.replace(category_name, '').strip(' .,-')
-        href = div.a['href']
-        try:
-            request2 = urllib2.Request(href, post)
-            request2.add_header('User-Agent', 'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1) ; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729; .NET4.0C)')
-            request2.add_header('Accept', '*/*')
-            request2.add_header('Accept-Language', 'ru-RU')
-            soup2 = BeautifulSoup(urllib2.urlopen(request2).read())
-            imgs = soup2.find("div", {'id': 'article_body'}).findAll('img')
-            img = None
-            if imgs:
-                img = imgs[0]['src']
-            video_href = None
-            for a in soup2.find("div", {'id': 'article_body'}).findAll('a'):
-                if a['href'].endswith('mp4') or a['href'].endswith('flv'):
-                    video_href = a['href']
-                    break
-            # xbmc.log("img: {img_href}, video: {video_href}".format(img_href=img, video_href=video_href))
-            xbmc.log("img: %s, video: %s" % (img, video_href))
-            i = xbmcgui.ListItem("{name} ({str_date})".format(name=name, str_date=str_date), iconImage=None, thumbnailImage=img)
-            u = sys.argv[0] + '?mode=EPISODE'
-            u += '&name=%s' % urllib.quote_plus(name)
-            u += '&url=%s' % urllib.quote_plus(video_href)
-        except Exception, ex:
-            xbmc.log('exception ' + str(ex))
-            # i = xbmcgui.ListItem("{name} ({str_date})".format(name=name, str_date=str_date), iconImage=None, thumbnailImage=None)
-            i = xbmcgui.ListItem("%s (%s)" % (name, str_date), iconImage=None, thumbnailImage=None)
-            u = sys.argv[0] + '?mode=EPISODE'
-            u += '&name=%s' % urllib.quote_plus(name)
-            u += '&url=%s' % urllib.quote_plus(href)
-
-        xbmcplugin.addDirectoryItem(thisPlugin, u, i, False)
-
+    xbmc.log("url: " + url2)
+    # category_name = urllib.unquote_plus(params['name'])
+    fetch_subcategories(url2)
     xbmcplugin.endOfDirectory(thisPlugin)
 
 
@@ -256,7 +205,6 @@ except:
 
 if mode == 'SUBCATEGORIES':
     Get_Subcategories(params)
-    # Get_Episodes(params)
 elif mode == 'EPISODE':
     PLAY(params)
 else:
