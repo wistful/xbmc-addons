@@ -38,8 +38,29 @@ except:
 thisPlugin = int(sys.argv[1])
 
 
-def Get_Categories():
-    url = 'http://news.tut.by/projects/?utm_source=main.tut.by&utm_medium=tv-block&utm_campaign=mainpage-tv-block'
+def Get_MainCategories():
+    categories = (
+        ('projects', u'Проекты и Программы', 'http://news.tut.by/projects/?utm_source=main.tut.by&utm_medium=tv-block&utm_campaign=mainpage-tv-block'),
+        ('recent', u'Последние выпуски', 'http://news.tut.by/tv'),
+        # ('live', u'Сейчас в эфире', 'http://www.tut.by/')
+        )
+
+    for tag, name, url in categories:
+        xbmc.log("tuple: %s, %s, %s" % (tag, name.encode('utf-8'), url))
+        i = xbmcgui.ListItem(label=name.encode('utf-8'), iconImage=None, thumbnailImage=None)
+        u = sys.argv[0] + '?mode=CATEGORIES'
+        u += '&name=%s' % urllib.quote_plus(name.encode('utf-8'))
+        u += '&url=%s' % urllib.quote_plus(url)
+        u += '&tag=%s' % urllib.quote_plus(tag)
+        if tag == 'live':
+            xbmcplugin.addDirectoryItem(thisPlugin, u, i, False)
+        else:
+            xbmcplugin.addDirectoryItem(thisPlugin, u, i, True)
+
+    xbmcplugin.endOfDirectory(thisPlugin)
+
+
+def fetch_categories(url):
     post = None
     request = urllib2.Request(url, post)
 
@@ -68,8 +89,6 @@ def Get_Categories():
         u += '&name=%s' % urllib.quote_plus(name)
         u += '&url=%s' % urllib.quote_plus(tag)
         xbmcplugin.addDirectoryItem(thisPlugin, u, i, True)
-
-    xbmcplugin.endOfDirectory(thisPlugin)
 
 
 def fetch_subcategories(url):
@@ -122,6 +141,48 @@ def fetch_subcategories(url):
         xbmc.log('Exception: ' + str(ex))
 
 
+def fetch_live(url):
+    post = None
+    request = urllib2.Request(url, post)
+    request.add_header('User-Agent', 'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1) ; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729; .NET4.0C)')
+    request.add_header('Accept', '*/*')
+    request.add_header('Accept-Language', 'ru-RU')
+
+    try:
+        f = urllib2.urlopen(request)
+    except IOError, e:
+        if hasattr(e, 'reason'):
+            xbmc.log('We failed to reach a server. Reason: ' + e.reason)
+        elif hasattr(e, 'code'):
+            xbmc.log('The server couldn\'t fulfill the request. Error code: ' + e.code)
+
+    html = f.read()
+
+    soup = BeautifulSoup(html)
+
+    live_tag = soup.find("input", {"id": "airVideoFile"})
+    if live_tag:
+        return live_tag['value']
+    return None
+
+
+def Get_Categories(params):
+    # -- parameters
+    url = urllib.unquote_plus(params['url'])
+    tag = urllib.unquote_plus(params['tag'])
+    name = urllib.unquote_plus(params['name'])
+    xbmc.log("categories - tag: %s , name: %s, url: %s" % (tag, name, url))
+
+    if tag == 'projects':
+        fetch_categories(url)
+    elif tag == "recent":
+        fetch_subcategories(url)
+    elif tag == "live":
+        ON_LIVE(url)
+
+    xbmcplugin.endOfDirectory(thisPlugin)
+
+
 def Get_Subcategories(params):
     # -- parameters
     url = urllib.unquote_plus(params['url'])
@@ -155,6 +216,22 @@ def Get_Video(url):
         if a['href'].endswith('mp4') or a['href'].endswith('flv'):
             xbmc.log('return link: %s , img: %s' % (a['href'], img.get('src', None)))
             return a['href'], img.get('src', None)
+
+
+def ON_LIVE(url):
+    name = "TUT.BY LIVE"
+
+    live_link = fetch_live(url)
+    live_link = "rtmp://video.tut.by/live//live1"
+    live_link = "http://video.tut.by:1935/live/live2"
+    i = xbmcgui.ListItem(label=name, path=urllib.unquote_plus(live_link))
+    i.setInfo('video', {'Title': name})
+    i.setProperty('IsPlayable', 'true')
+    playList = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
+    playList.clear()
+    playList.add(urllib.unquote_plus(live_link), i)
+    player = xbmc.Player(xbmc.PLAYER_CORE_AUTO)
+    player.play(playList)
 
 
 def PLAY(params):
@@ -201,11 +278,13 @@ mode = None
 try:
     mode = urllib.unquote_plus(params['mode'])
 except:
-    Get_Categories()
+    Get_MainCategories()
 
-if mode == 'SUBCATEGORIES':
+if mode == 'CATEGORIES':
+    Get_Categories(params)
+elif mode == 'SUBCATEGORIES':
     Get_Subcategories(params)
 elif mode == 'EPISODE':
     PLAY(params)
 else:
-    Get_Categories()
+    Get_MainCategories()
