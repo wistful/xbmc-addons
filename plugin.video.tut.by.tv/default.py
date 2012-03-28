@@ -42,7 +42,7 @@ def Get_MainCategories():
     categories = (
         ('projects', u'Проекты и Программы', 'http://news.tut.by/projects/?utm_source=main.tut.by&utm_medium=tv-block&utm_campaign=mainpage-tv-block'),
         ('recent', u'Последние выпуски', 'http://news.tut.by/tv'),
-        # ('live', u'Сейчас в эфире', 'http://www.tut.by/')
+        ('live', u'Сейчас в эфире', 'http://www.tut.by/')
         )
 
     for tag, name, url in categories:
@@ -221,9 +221,8 @@ def Get_Video(url):
 def ON_LIVE(url):
     name = "TUT.BY LIVE"
 
-    live_link = fetch_live(url)
-    live_link = "rtmp://video.tut.by/live//live1"
-    live_link = "http://video.tut.by:1935/live/live2"
+    live_link = fetch_live(url).replace(r'///', r'/')
+    # live_link = "rtmp://video.tut.by/live/live1"
     i = xbmcgui.ListItem(label=name, path=urllib.unquote_plus(live_link))
     i.setInfo('video', {'Title': name})
     i.setProperty('IsPlayable', 'true')
