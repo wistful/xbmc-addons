@@ -66,7 +66,7 @@ def Get_Episodes(params):
     f = open_url(url)
     if not f:
         return False
-
+    url = f.url
     html = f.read()
     soup = BeautifulSoup(html, convertEntities=BeautifulSoup.ALL_ENTITIES)
 
@@ -153,7 +153,7 @@ def PLAY(params):
     name = urllib.unquote_plus(params['name'])
 
     video = Get_Video(url)
-    xbmc.log("url: " + video)
+    # xbmc.log("url: " + video)
     i = xbmcgui.ListItem(label=name, path=urllib.unquote_plus(video))
     i.setInfo('video', {'Title': name})
     i.setProperty('IsPlayable', 'true')
@@ -188,6 +188,7 @@ def open_url(url):
 
 
 def add_item(name, mode, url, iconImage=None, thumbnailImage=None, isDirectory=True):
+    # xbmc.log("add item - name: %s , mode: %s , url: %s" % (name, mode, url))
     i = xbmcgui.ListItem(label=name.encode('utf-8'), iconImage=iconImage, thumbnailImage=thumbnailImage)
     u = "%s?mode=%s&name=%s&url=%s" % (sys.argv[0], mode, urllib.quote_plus(name.encode('utf-8')), urllib.quote_plus(url))
     xbmcplugin.addDirectoryItem(thisPlugin, u, i, isDirectory)
