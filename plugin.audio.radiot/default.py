@@ -34,6 +34,8 @@ except:
         from BeautifulSoup  import BeautifulSoup
         icon = xbmc.translatePath(os.path.join(os.getcwd().replace(';', ''),'icon.png'))
 
+BeautifulSoup.NESTABLE_BLOCK_TAGS = ('blockquote', 'div', 'fieldset', 'ins', 'del', 'article', 'header', 'p')
+BeautifulSoup.NESTABLE_TAGS.update({'header': [], 'article': [], 'p': []})
 
 # magic
 thisPlugin = int(sys.argv[1])
@@ -41,13 +43,13 @@ thisPlugin = int(sys.argv[1])
 
 def Get_Categories():
     categories = (
-        ('main', u'Подкаст Радио-Т', 'http://radio-t.com/', 'http://1.bp.blogspot.com/-e3vBuApYoLE/To9nSz0AscI/AAAAAAAAPYA/Nd8tAoh5eH8/s1600/rt-header-logo.png'),
-        ('pirates', u'Пираты Радио-Т', 'http://pirates.radio-t.com', 'http://1.bp.blogspot.com/-e3vBuApYoLE/To9nSz0AscI/AAAAAAAAPYA/Nd8tAoh5eH8/s1600/rt-header-logo.png')
+        ('main', u'Подкаст Радио-Т', 'http://radio-t.com/', 'http://www.radio-t.com/images/rt-header-logo.png'),
+        ('pirates', u'Пираты Радио-Т', 'http://pirates.radio-t.com', 'http://pirates.radio-t.com/images/pirates-logo.png')
         )
     for tag, name, url, img in categories:
         xbmc.log("tuple: %s, %s, %s, %s" % (tag, name.encode('utf-8'), url, img))
         i = xbmcgui.ListItem(label=name.encode('utf-8'), iconImage=None, thumbnailImage=img)
-        u = sys.argv[0] + '?mode=EPISODES'
+        u = sys.argv[0] + '?mode=category'
         u += '&name=%s' % urllib.quote_plus(name.encode('utf-8'))
         u += '&url=%s' % urllib.quote_plus(url)
         u += '&tag=%s' % urllib.quote_plus(tag)
@@ -56,56 +58,63 @@ def Get_Categories():
     xbmcplugin.endOfDirectory(thisPlugin)
 
 
-def add_podcasts(html, tag):
-    if tag == "main":
-        link_compile = re.compile('rt_podcast\d+\.mp3')
-    elif tag == "pirates":
-        link_compile = re.compile('rt\d+post\.mp3')
-    else:
-        return
-
-    soup = BeautifulSoup(html)
-    for div in soup.findAll("div", {"class": "date-outer"}):
-        podcast_link = div.find('a', href=link_compile)
-        if podcast_link:
-            href = podcast_link['href']
-        else:
-            continue
-
-        str_date = div.find("h2", {"class": "date-header"}).span.text.encode('utf-8').replace('&#160;', ' ')
-        name = div.find("h3").a.text.encode('utf-8')
-        img = div.find('img')
-        if img:
-            img_src = img['src']
-        else:
-            img_src = None
-        i = xbmcgui.ListItem("%s (%s)" % (name, str_date), iconImage=None, thumbnailImage=img_src)
-        u = sys.argv[0] + '?mode=EPISODE'
-        u += '&name=%s' % urllib.quote_plus(name)
-        u += '&url=%s' % urllib.quote_plus(href)
-        xbmcplugin.addDirectoryItem(thisPlugin, u, i, False)
-
-    try:
-        next_step = soup.find("div", {"id": "blog-pager"}).find("a", {"id": "Blog1_blog-pager-older-link"})["href"]
-        i = xbmcgui.ListItem(u"Далее >>", iconImage=None, thumbnailImage=None)
-        u = sys.argv[0] + '?mode=EPISODES'
-        u += '&name=%s' % urllib.quote_plus('')
-        u += '&url=%s' % urllib.quote_plus(next_step)
-        u += '&tag=%s' % urllib.quote_plus(tag)
-        xbmc.log("next step: %s" % next_step)
-        xbmcplugin.addDirectoryItem(thisPlugin, u, i, True)
-    except Exception, ex:
-        xbmc.log('Exception: %s' % ex)
-
-
-def Get_Episodes(params):
-    # -- parameters
-    url = urllib.unquote_plus(params['url'])
-    xbmc.log("url : " + url)
+def Get_Subcategories(params):
     tag = urllib.unquote_plus(params['tag'])
-    xbmc.log("tag: %s" % tag)
+    if tag == 'pirates':
+        subcategories = (
+            ('pirates-recent', u'Последние выпуски', 'http://pirates.radio-t.com/'),
+            ('pirates-archive', u'Архив выпусков', 'http://pirates.radio-t.com/archives/')
+        )
+    else:
+        subcategories = (
+            ('main-online', 'On air', 'http://stream.radio-t.com:8181/stream.m3u'),
+            ('main-recent', u'Последние выпуски', 'http://radio-t.com/'),
+            ('main-archive', u'Архив выпусков', 'http://www.radio-t.com/archives/')
+        )
 
-    post = None
+    for tag, name, url in subcategories:
+        # xbmc.log("tuple: %s, %s, %s" % (tag, name.encode('utf-8'), url))
+        i = xbmcgui.ListItem(label=name.encode('utf-8'), iconImage=None, thumbnailImage=None)
+        u = sys.argv[0] + '?mode=subcategory'
+        if tag == 'main-online':
+            u = sys.argv[0] + '?mode=episode'
+        u += '&name=%s' % urllib.quote_plus(name.encode('utf-8'))
+        u += '&url=%s' % urllib.quote_plus(url)
+        u += '&tag=%s' % urllib.quote_plus(tag)
+        if tag == 'main-online':
+            xbmcplugin.addDirectoryItem(thisPlugin, u, i, False)
+        else:
+            xbmcplugin.addDirectoryItem(thisPlugin, u, i, True)
+
+    xbmcplugin.endOfDirectory(thisPlugin)
+
+
+def main_episodes(html):
+    soup = BeautifulSoup(html)
+    episodes = []
+    for article in soup.findAll('article'):
+        print str(article)
+        try:
+            title_el = article.find('h1')
+            if title_el.find('a'):
+                title = title_el.find('a').text.encode('utf-8')
+            else:
+                title = title_el.text.encode('utf-8')
+            img_el = article.find('div', attrs={'class': re.compile(r'\bentry-content\b')}).find('img')
+            img = ''
+            if img_el:
+                img = img_el['src']
+                if 'http:' not in img:
+                    img = 'http://www.radio-t.com/' + img
+            podcast_link = article.find('audio')
+            if podcast_link:
+                episodes.append((title, podcast_link['src'], img.replace(r'com//', r'com/')))
+        except Exception:
+            raise
+    return episodes
+
+
+def create_request(url, post=None):
     request = urllib2.Request(url, post)
     request.add_header('User-Agent', 'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1) ; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729; .NET4.0C)')
     request.add_header('Accept', '*/*')
@@ -113,14 +122,42 @@ def Get_Episodes(params):
 
     try:
         f = urllib2.urlopen(request)
+        return f.read()
     except IOError, e:
         if hasattr(e, 'reason'):
             xbmc.log('We failed to reach a server. Reason: ' + e.reason)
         elif hasattr(e, 'code'):
             xbmc.log('The server couldn\'t fulfill the request. Error code: ' + e.code)
+    return ""
 
-    html = f.read()
-    add_podcasts(html, tag)
+
+def get_episodes(params):
+    # -- parameters
+    url = urllib.unquote_plus(params['url'])
+    xbmc.log("url : " + url)
+    tag = urllib.unquote_plus(params['tag'])
+    xbmc.log("tag: %s" % tag)
+    html = create_request(url, None)
+
+    episodes = []
+    if tag in  ('main-recent', 'pirates-recent'):
+        episodes = main_episodes(html)
+    elif tag == 'main-archive':
+        episodes = filter(lambda item: 'podcast-' in item[1], [(article.find('h1').find('a').text.encode('utf-8'), 'http://www.radio-t.com' + article.find('h1').find('a')['href'], '') for article in BeautifulSoup(html).find('div', attrs={'id': 'blog-archives'}).findAll('article')])
+    elif tag == 'pirates-archive':
+        episodes = filter(lambda item: 'podcast-' in item[1], [(article.find('h1').find('a').text.encode('utf-8'), 'http://pirates.radio-t.com' + article.find('h1').find('a')['href'], '') for article in BeautifulSoup(html).find('div', attrs={'id': 'blog-archives'}).findAll('article')])
+    else:
+        return
+
+    for name, url, img in episodes:
+        print tag, name, url, img
+        i = xbmcgui.ListItem(label=name, iconImage=None, thumbnailImage=img)
+        u = sys.argv[0] + '?mode=episode'
+        u += '&name=%s' % urllib.quote_plus(name)
+        u += '&url=%s' % urllib.quote_plus(url)
+        u += '&tag=%s' % urllib.quote_plus('episode')
+        u += '&img=%s' % urllib.quote_plus(img)
+        xbmcplugin.addDirectoryItem(thisPlugin, u, i, False)
     xbmcplugin.endOfDirectory(thisPlugin)
 
 
@@ -128,7 +165,11 @@ def PLAY(params):
     # -- parameters
     url = urllib.unquote_plus(params['url'])
     name = urllib.unquote_plus(params['name'])
-    img = None
+    img = urllib.unquote_plus(params['img'])
+    if not url.endswith('mp3'):
+        html = create_request(url, None)
+        name, url, img = main_episodes(html)[0]
+        print name, url, img
     if img:
         i = xbmcgui.ListItem(label=name, path=urllib.unquote_plus(url), thumbnailImage=img)
     else:
@@ -168,10 +209,11 @@ try:
 except:
     Get_Categories()
 
-if mode == 'EPISODES':
-    Get_Episodes(params)
-elif mode == 'EPISODE':
+if mode == 'category':
+    Get_Subcategories(params)
+elif mode == 'subcategory':
+    get_episodes(params)
+elif mode == 'episode':
     PLAY(params)
 else:
-    # Get_Categories()
     pass
