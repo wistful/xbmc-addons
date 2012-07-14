@@ -165,8 +165,8 @@ def PLAY(params):
     # -- parameters
     url = urllib.unquote_plus(params['url'])
     name = urllib.unquote_plus(params['name'])
-    img = urllib.unquote_plus(params['img'])
-    if not url.endswith('mp3'):
+    img = urllib.unquote_plus(params.get('img', ''))
+    if not url.endswith('mp3') and not url.endswith('m3u'):
         html = create_request(url, None)
         name, url, img = main_episodes(html)[0]
         print name, url, img
