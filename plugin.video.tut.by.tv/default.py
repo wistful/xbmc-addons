@@ -23,15 +23,15 @@ Addon = xbmcaddon.Addon(id='plugin.video.tut.by.tv')
 # load XML library
 try:
     sys.path.append(os.path.join(Addon.getAddonInfo('path'), r'resources', r'lib'))
-    from BeautifulSoup  import BeautifulSoup
+    from BeautifulSoup import BeautifulSoup
 except:
     try:
         sys.path.insert(0, os.path.join(Addon.getAddonInfo('path'), r'resources', r'lib'))
-        from BeautifulSoup  import BeautifulSoup
+        from BeautifulSoup import BeautifulSoup
     except:
         sys.path.append(os.path.join(os.getcwd(), r'resources', r'lib'))
-        from BeautifulSoup  import BeautifulSoup
-        icon = xbmc.translatePath(os.path.join(os.getcwd().replace(';', ''),'icon.png'))
+        from BeautifulSoup import BeautifulSoup
+        icon = xbmc.translatePath(os.path.join(os.getcwd().replace(';', ''), 'icon.png'))
 
 
 # magic
@@ -41,13 +41,13 @@ thisPlugin = int(sys.argv[1])
 def Get_MainCategories():
     categories = (
         ('projects', u'Проекты и Программы', 'http://news.tut.by/projects/?utm_source=main.tut.by&utm_medium=tv-block&utm_campaign=mainpage-tv-block'),
-        ('recent', u'Последние выпуски', 'http://news.tut.by/tv'),
+        ('recent', u'Последние выпуски', 'http://news.tut.by/tag/tutby-tv.html?utm_source=main_page&utm_medium=main_resource_block&utm_campaign=tutby_links'),
         ('live', u'Сейчас в эфире', 'http://www.tut.by/')
-        )
+    )
 
     for tag, name, url in categories:
         xbmc.log("tuple: %s, %s, %s" % (tag, name.encode('utf-8'), url))
-        i = xbmcgui.ListItem(label=name.encode('utf-8'), iconImage=None, thumbnailImage=None)
+        i = xbmcgui.ListItem(label=name.encode('utf-8'), iconImage='', thumbnailImage='')
         u = sys.argv[0] + '?mode=CATEGORIES'
         u += '&name=%s' % urllib.quote_plus(name.encode('utf-8'))
         u += '&url=%s' % urllib.quote_plus(url)
@@ -82,16 +82,16 @@ def fetch_categories(url):
     for h2 in soup.findAll("h2"):
         tag = h2.a['href']
         name = h2.a['title'].encode('utf-8')
-        img = h2.parent.find('img', {'class': 'opImg'})['src']
+        # img = h2.parent.find('img', {'class': 'opImg'})['src']
         # descr = h2.parent.find('span', {'class': 'opText'}).text.encode('utf-8')
-        i = xbmcgui.ListItem(label=name, iconImage=None, thumbnailImage=img)
+        i = xbmcgui.ListItem(label=name, iconImage='', thumbnailImage='')
         u = sys.argv[0] + '?mode=SUBCATEGORIES'
         u += '&name=%s' % urllib.quote_plus(name)
         u += '&url=%s' % urllib.quote_plus(tag)
         xbmcplugin.addDirectoryItem(thisPlugin, u, i, True)
 
 
-def fetch_subcategories(url):
+def fetch_subcategories(category_name, url):
     post = None
     request = urllib2.Request(url, post)
     request.add_header('User-Agent', 'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1) ; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729; .NET4.0C)')
@@ -110,15 +110,17 @@ def fetch_subcategories(url):
 
     soup = BeautifulSoup(html, fromEncoding="windows-1251")
     count = 0
-    for div in soup.find("ul", {"id": "newsBlock1"}).findAll("li"):
-        str_date = div.span.text.encode('utf-8')
-        name = div.a.text.encode('utf-8')
-        href = div.a['href']
-        is_video = div.find(lambda tag: tag.name == "img" and u"Видео" in dict(tag.attrs).get('title', ''))
+    for div in soup.find(lambda tag: tag.name == "div" and "list_category" in dict(tag.attrs).get('class', '')).findAll(lambda tag: tag.name == "li" and "lists__li" in dict(tag.attrs).get('class', '')):
+        str_date = div.find("li", {"class": "li_date"}).text.encode('utf-8')
+        name = div.find("div", {"class": "txt"}).find("a").text.encode('utf-8').replace(category_name + ". ", "")
+        href = div.find("div", {"class": "txt"}).find("a")['href']
+        xbmc.log("href: " + href)
         # is_audio = div.find(lambda tag: tag.name == "img" and u"Аудио" in dict(tag.attrs).get('title', ''))
+        is_video = div.find(lambda tag: tag.name == "img" and u"Видео" in dict(tag.attrs).get('title', ''))
         if not is_video:
             continue
-        i = xbmcgui.ListItem("%s (%s)" % (name, str_date), iconImage=None, thumbnailImage=None)
+        img = div.find("div", {"class": "media"}).find("img")['src']
+        i = xbmcgui.ListItem("%s (%s)" % (name, str_date), iconImage='', thumbnailImage=img)
         u = sys.argv[0] + '?mode=EPISODE'
         u += '&name=%s' % urllib.quote_plus(name)
         u += '&url=%s' % urllib.quote_plus(href)
@@ -127,10 +129,10 @@ def fetch_subcategories(url):
 
     next_step = None
     try:
-        next_step = soup.find("div", {"class": "otherInfo"}).find("ul", {"class": "pagination"}).findAll("li")[-1].find("a", {"class": "step"})['href']
-        i = xbmcgui.ListItem(u"Далее >>", iconImage=None, thumbnailImage=None)
+        next_step = soup.find("div", {"class": "b-pagination"}).find(lambda tag: tag.name == "a" and u'Следующая страница' in dict(tag.attrs).get('title', ''))['href']
+        i = xbmcgui.ListItem(u"Далее >>", iconImage='', thumbnailImage='')
         u = sys.argv[0] + '?mode=SUBCATEGORIES'
-        u += '&name=%s' % urllib.quote_plus('')
+        u += '&name=%s' % urllib.quote_plus(category_name)
         u += '&url=%s' % urllib.quote_plus(next_step)
         xbmc.log("next step: " + next_step)
         if count < 15:
@@ -176,7 +178,7 @@ def Get_Categories(params):
     if tag == 'projects':
         fetch_categories(url)
     elif tag == "recent":
-        fetch_subcategories(url)
+        fetch_subcategories('recent', url)
     elif tag == "live":
         ON_LIVE(url)
 
@@ -188,8 +190,8 @@ def Get_Subcategories(params):
     url = urllib.unquote_plus(params['url'])
     url2 = get_url(url)
     xbmc.log("url: " + url2)
-    # category_name = urllib.unquote_plus(params['name'])
-    fetch_subcategories(url2)
+    category_name = urllib.unquote_plus(params['name'])
+    fetch_subcategories(category_name, url2)
     xbmcplugin.endOfDirectory(thisPlugin)
 
 
@@ -212,10 +214,11 @@ def Get_Video(url):
     html = f.read()
     soup = BeautifulSoup(html, fromEncoding="windows-1251")
     img = soup.find("div", {'id': 'article_body'}).find(lambda tag: tag.name == 'img' and not tag['src'].endswith('gif')) or {}
+    img = img.get('src', '')
     for a in soup.find("div", {'id': 'article_body'}).findAll('a'):
         if a['href'].endswith('mp4') or a['href'].endswith('flv'):
-            xbmc.log('return link: %s , img: %s' % (a['href'], img.get('src', None)))
-            return a['href'], img.get('src', None)
+            xbmc.log('return link: %s , img: %s' % (a['href'], img))
+            return a['href'], img
 
 
 def ON_LIVE(url):
