@@ -24,15 +24,15 @@ Addon = xbmcaddon.Addon(id='plugin.audio.radiot')
 # load XML library
 try:
     sys.path.append(os.path.join(Addon.getAddonInfo('path'), r'resources', r'lib'))
-    from BeautifulSoup  import BeautifulSoup
+    from BeautifulSoup import BeautifulSoup
 except:
     try:
         sys.path.insert(0, os.path.join(Addon.getAddonInfo('path'), r'resources', r'lib'))
-        from BeautifulSoup  import BeautifulSoup
+        from BeautifulSoup import BeautifulSoup
     except:
         sys.path.append(os.path.join(os.getcwd(), r'resources', r'lib'))
-        from BeautifulSoup  import BeautifulSoup
-        icon = xbmc.translatePath(os.path.join(os.getcwd().replace(';', ''),'icon.png'))
+        from BeautifulSoup import BeautifulSoup
+        icon = xbmc.translatePath(os.path.join(os.getcwd().replace(';', ''), 'icon.png'))
 
 BeautifulSoup.NESTABLE_BLOCK_TAGS = ('blockquote', 'div', 'fieldset', 'ins', 'del', 'article', 'header', 'p')
 BeautifulSoup.NESTABLE_TAGS.update({'header': [], 'article': [], 'p': []})
@@ -45,10 +45,10 @@ def Get_Categories():
     categories = (
         ('main', u'Подкаст Радио-Т', 'http://radio-t.com/', 'http://www.radio-t.com/images/rt-header-logo.png'),
         ('pirates', u'Пираты Радио-Т', 'http://pirates.radio-t.com', 'http://pirates.radio-t.com/images/pirates-logo.png')
-        )
+    )
     for tag, name, url, img in categories:
         xbmc.log("tuple: %s, %s, %s, %s" % (tag, name.encode('utf-8'), url, img))
-        i = xbmcgui.ListItem(label=name.encode('utf-8'), iconImage=None, thumbnailImage=img)
+        i = xbmcgui.ListItem(label=name.encode('utf-8'), iconImage='', thumbnailImage=img)
         u = sys.argv[0] + '?mode=category'
         u += '&name=%s' % urllib.quote_plus(name.encode('utf-8'))
         u += '&url=%s' % urllib.quote_plus(url)
@@ -74,7 +74,7 @@ def Get_Subcategories(params):
 
     for tag, name, url in subcategories:
         # xbmc.log("tuple: %s, %s, %s" % (tag, name.encode('utf-8'), url))
-        i = xbmcgui.ListItem(label=name.encode('utf-8'), iconImage=None, thumbnailImage=None)
+        i = xbmcgui.ListItem(label=name.encode('utf-8'), iconImage='', thumbnailImage='')
         u = sys.argv[0] + '?mode=subcategory'
         if tag == 'main-online':
             u = sys.argv[0] + '?mode=episode'
@@ -140,7 +140,7 @@ def get_episodes(params):
     html = create_request(url, None)
 
     episodes = []
-    if tag in  ('main-recent', 'pirates-recent'):
+    if tag in ('main-recent', 'pirates-recent'):
         episodes = main_episodes(html)
     elif tag == 'main-archive':
         episodes = filter(lambda item: 'podcast-' in item[1], [(article.find('h1').find('a').text.encode('utf-8'), 'http://www.radio-t.com' + article.find('h1').find('a')['href'], '') for article in BeautifulSoup(html).find('div', attrs={'id': 'blog-archives'}).findAll('article')])
@@ -151,7 +151,7 @@ def get_episodes(params):
 
     for name, url, img in episodes:
         print tag, name, url, img
-        i = xbmcgui.ListItem(label=name, iconImage=None, thumbnailImage=img)
+        i = xbmcgui.ListItem(label=name, iconImage='', thumbnailImage=img)
         u = sys.argv[0] + '?mode=episode'
         u += '&name=%s' % urllib.quote_plus(name)
         u += '&url=%s' % urllib.quote_plus(url)
