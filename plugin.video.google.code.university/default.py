@@ -12,7 +12,6 @@ import sys
 import os
 import urllib2
 import urllib
-import httplib
 import re
 import urlparse
 
@@ -28,15 +27,15 @@ Addon = xbmcaddon.Addon(id='plugin.video.marakana.tech.tv')
 # load XML library
 try:
     sys.path.append(os.path.join(Addon.getAddonInfo('path'), r'resources', r'lib'))
-    from BeautifulSoup  import BeautifulSoup
+    from BeautifulSoup import BeautifulSoup
 except:
     try:
         sys.path.insert(0, os.path.join(Addon.getAddonInfo('path'), r'resources', r'lib'))
-        from BeautifulSoup  import BeautifulSoup
+        from BeautifulSoup import BeautifulSoup
     except:
         sys.path.append(os.path.join(os.getcwd(), r'resources', r'lib'))
-        from BeautifulSoup  import BeautifulSoup
-        icon = xbmc.translatePath(os.path.join(os.getcwd().replace(';', ''),'icon.png'))
+        from BeautifulSoup import BeautifulSoup
+        icon = xbmc.translatePath(os.path.join(os.getcwd().replace(';', ''), 'icon.png'))
 
 
 # magic
@@ -45,12 +44,12 @@ thisPlugin = int(sys.argv[1])
 
 def Get_MainCategories():
     categories = {'Programming Languages': 'http://code.google.com/intl/en/edu/languages/index.html',
-                    'Web Programming': 'http://code.google.com/intl/en/edu/ajax/index.html',
-                    'Web Security': 'http://code.google.com/intl/en/edu/security/index.html',
-                    'Algorithms': 'http://code.google.com/intl/en/edu/algorithms/index.html',
-                    'Android': 'http://code.google.com/intl/en/edu/android/index.html',
-                    'Distributed Systems': 'http://code.google.com/intl/en/edu/parallel/index.html'
-                }
+                  'Web Programming': 'http://code.google.com/intl/en/edu/ajax/index.html',
+                  'Web Security': 'http://code.google.com/intl/en/edu/security/index.html',
+                  'Algorithms': 'http://code.google.com/intl/en/edu/algorithms/index.html',
+                  'Android': 'http://code.google.com/intl/en/edu/android/index.html',
+                  'Distributed Systems': 'http://code.google.com/intl/en/edu/parallel/index.html'
+                  }
 
     for course in categories:
         add_item(course, 'CATEGORY', categories[course], isDirectory=True)
@@ -71,42 +70,11 @@ def Get_Episodes(params):
         try:
             name = item.findAllPrevious('h3', limit=1)[0].text
             href = item["src"]
-            add_item(name, 'EPISODE', href, thumbnailImage=None, isDirectory=False)
+            add_item(name, 'EPISODE', href, thumbnailImage='', isDirectory=False)
         except:
             continue
 
     xbmcplugin.endOfDirectory(thisPlugin)
-
-
-def GetYoutubeVideoInfo(videoID, eurl=None):
-    '''
-    Return direct URL to video and dictionary containing additional info
-    >> url,info = GetYoutubeVideoInfo("tmFbteHdiSw")
-    >>
-    '''
-    if not eurl:
-        params = urllib.urlencode({'video_id': videoID})
-    else:
-        params = urllib.urlencode({'video_id': videoID, 'eurl': eurl})
-    conn = httplib.HTTPConnection("www.youtube.com")
-    conn.request("GET", "/get_video_info?&%s" % params)
-    response = conn.getresponse()
-    data = response.read()
-    video_info = dict((k, urllib.unquote_plus(v)) for k, v in
-                               (nvp.split('=') for nvp in data.split('&')))
-    conn.request('GET', '/get_video?video_id=%s&t=%s' %
-                         (video_info['video_id'], video_info['token']))
-    response = conn.getresponse()
-    direct_url = response.getheader('location')
-    return direct_url, video_info
-
-
-def GetGoogleVideoDirectUrl(videoId):
-    url = "http://video.google.com/videofeed?fgvns=1&fai=1&docid=%s&hl=en" % videoId
-    html = urllib2.urlopen(url).read()
-    direct_url = urllib2.unquote(GVIDEO_DIRECT_PATTERN.search(html).group(0)[9:-1]).replace('&amp;', '&')
-    direct_url = direct_url[:direct_url.index('&thumbnailUrl')]
-    return direct_url
 
 
 def Get_Video(url):
@@ -118,11 +86,8 @@ def Get_Video(url):
         video_id = v2.groups()[0]
     else:
         return
+    direct_url = "plugin://plugin.video.youtube/?path=/root/video&action=play_video&videoid=" + video_id
 
-    direct_url, video_info = GetYoutubeVideoInfo(video_id)
-    info_link = urllib.unquote_plus(video_info['url_encoded_fmt_stream_map'])
-    if not direct_url:
-        direct_url = info_link[4:YOUTUBE_DIRECT_LINK_PATTERN.search(info_link).end()]
     return direct_url
 
 
@@ -131,7 +96,7 @@ def PLAY(params):
     url = urllib.unquote_plus(params['url'])
     name = urllib.unquote_plus(params['name'])
     if 'video.google.com' in url:
-        video = GetGoogleVideoDirectUrl(GVIDEO_PATTERN.search(url).groups(0)[0])
+        video = "plugin://plugin.video.youtube/?path=/root/video&action=play_video&videoid=" + GVIDEO_PATTERN.search(url).groups(0)[0]
     else:
         video = Get_Video(url)
     xbmc.log("url: " + video)
@@ -168,7 +133,7 @@ def open_url(url):
     return f
 
 
-def add_item(name, mode, url, iconImage=None, thumbnailImage=None, isDirectory=True):
+def add_item(name, mode, url, iconImage='', thumbnailImage='', isDirectory=True):
     # xbmc.log("add item - name: %s , mode: %s , url: %s" % (name, mode, url))
     i = xbmcgui.ListItem(label=name.encode('utf-8'), iconImage=iconImage, thumbnailImage=thumbnailImage)
     u = "%s?mode=%s&name=%s&url=%s" % (sys.argv[0], mode, urllib.quote_plus(name.encode('utf-8')), urllib.quote_plus(url))
