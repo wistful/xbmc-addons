@@ -12,7 +12,6 @@ import sys
 import os
 import urllib2
 import urllib
-import httplib
 import re
 import urlparse
 
@@ -26,15 +25,15 @@ Addon = xbmcaddon.Addon(id='plugin.video.marakana.tech.tv')
 # load XML library
 try:
     sys.path.append(os.path.join(Addon.getAddonInfo('path'), r'resources', r'lib'))
-    from BeautifulSoup  import BeautifulSoup
+    from BeautifulSoup import BeautifulSoup
 except:
     try:
         sys.path.insert(0, os.path.join(Addon.getAddonInfo('path'), r'resources', r'lib'))
-        from BeautifulSoup  import BeautifulSoup
+        from BeautifulSoup import BeautifulSoup
     except:
         sys.path.append(os.path.join(os.getcwd(), r'resources', r'lib'))
-        from BeautifulSoup  import BeautifulSoup
-        icon = xbmc.translatePath(os.path.join(os.getcwd().replace(';', ''),'icon.png'))
+        from BeautifulSoup import BeautifulSoup
+        icon = xbmc.translatePath(os.path.join(os.getcwd().replace(';', ''), 'icon.png'))
 
 
 # magic
@@ -103,46 +102,30 @@ def Get_Episodes(params):
     xbmcplugin.endOfDirectory(thisPlugin)
 
 
-def GetYoutubeVideoInfo(videoID, eurl=None):
-    '''
-    Return direct URL to video and dictionary containing additional info
-    >> url,info = GetYoutubeVideoInfo("tmFbteHdiSw")
-    >>
-    '''
-    if not eurl:
-        params = urllib.urlencode({'video_id': videoID})
-    else:
-        params = urllib.urlencode({'video_id': videoID, 'eurl': eurl})
-    conn = httplib.HTTPConnection("www.youtube.com")
-    conn.request("GET", "/get_video_info?&%s" % params)
-    response = conn.getresponse()
-    data = response.read()
-    video_info = dict((k, urllib.unquote_plus(v)) for k, v in
-                               (nvp.split('=') for nvp in data.split('&')))
-    conn.request('GET', '/get_video?video_id=%s&t=%s' %
-                         (video_info['video_id'], video_info['token']))
-    response = conn.getresponse()
-    direct_url = response.getheader('location')
-    return direct_url, video_info
-
-
 def Get_Video(url):
     f = open_url(url)
 
     html = f.read()
     soup = BeautifulSoup(html)
-    source = soup.find("div", {"class": "body"}).find("iframe")['src']
-    v1 = YOUTUBE_PATTERN.search(source)
-    v2 = YOUTUBE_PATTERN2.search(source)
-    if v1:
-        video_id = v1.groups()[1]
-    else:
-        video_id = v2.groups()[0]
+    # check is youtube video
+    source = soup.find("div", {"class": "body"}).find("iframe") or soup.find("iframe", {"class": "youtube-player"})
 
-    direct_url, video_info = GetYoutubeVideoInfo(video_id)
-    info_link = urllib.unquote_plus(video_info['url_encoded_fmt_stream_map'])
-    if not direct_url:
-        direct_url = info_link[4:YOUTUBE_DIRECT_LINK_PATTERN.search(info_link).end()]
+    if source is None:
+        source = soup.find("object", {"class": "video"})['data']
+        direct_url = urlparse.parse_qs(urlparse.urlparse(source)[4]).get('file', [''])[0]
+    else:
+        xbmc.log('source: ' + str(source['src']))
+        v1 = YOUTUBE_PATTERN.search(source['src'])
+        v2 = YOUTUBE_PATTERN2.search(source['src'])
+        if v1:
+            video_id = v1.groups()[1]
+        elif v2:
+            video_id = v2.groups()[0]
+        else:
+            video_id = None
+        xbmc.log("youtube video_id: " + video_id)
+        direct_url = "plugin://plugin.video.youtube/?path=/root/video&action=play_video&videoid=" + video_id
+    xbmc.log("direct_url: " + direct_url)
     return direct_url
 
 
@@ -152,8 +135,12 @@ def PLAY(params):
     # img = urllib.unquote_plus(params['img'])
     name = urllib.unquote_plus(params['name'])
 
-    video = Get_Video(url)
-    # xbmc.log("url: " + video)
+    try:
+        video = Get_Video(url)
+    except StandardError:
+        # xbmcgui. ShowNotification("video not found")
+        xbmcgui.Dialog().ok("Error", "Video not found")
+        return
     i = xbmcgui.ListItem(label=name, path=urllib.unquote_plus(video))
     i.setInfo('video', {'Title': name})
     i.setProperty('IsPlayable', 'true')
@@ -187,7 +174,7 @@ def open_url(url):
     return f
 
 
-def add_item(name, mode, url, iconImage=None, thumbnailImage=None, isDirectory=True):
+def add_item(name, mode, url, iconImage='', thumbnailImage='', isDirectory=True):
     # xbmc.log("add item - name: %s , mode: %s , url: %s" % (name, mode, url))
     i = xbmcgui.ListItem(label=name.encode('utf-8'), iconImage=iconImage, thumbnailImage=thumbnailImage)
     u = "%s?mode=%s&name=%s&url=%s" % (sys.argv[0], mode, urllib.quote_plus(name.encode('utf-8')), urllib.quote_plus(url))
